@@ -257,7 +257,8 @@ func GET(url, endpoint string) (r *http.Response, e error) {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
-	client.Timeout = 8 * 1e9
+  // Not available in Go<1.3
+	//client.Timeout = 8 * 1e9
 
 	//fmt.Printf("\n%s/api/%s\n",url,endpoint)
 	for strings.HasSuffix(url, "/") {
@@ -308,7 +309,8 @@ func POST(jsondata []byte, url, endpoint string) (r *http.Response, e error) {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
-	client.Timeout = 8 * 1e9
+  // Not available in Go<1.3
+	//client.Timeout = 8 * 1e9
 
 	//fmt.Printf("\n%s/api/%s\n",url,endpoint)
 	for strings.HasSuffix(url, "/") {
