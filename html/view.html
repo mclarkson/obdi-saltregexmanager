@@ -98,12 +98,12 @@
     <div class="col-sm-12" style="margin-top: 20px">
       <div class="vbtn" style="margin-bottom: 8px;">
         <div style="margin-left: 8px" class="btn-group"
-        dropdown is-open="status.isopen">
-          <button type="button" class="btn btn-primary dropdown-toggle"
+        uib-dropdown is-open="status.isopen">
+          <button type="button" class="btn btn-primary" uib-dropdown-toggle
           ng-disabled="btnenvlistdisabled">
             Choose Environment <span class="caret"></span>
           </button>
-          <ul class="dropdown-menu" role="menu">
+          <ul uib-dropdown-menu role="menu">
             <li ng-repeat="choice in environments">
             <a href ng-click="envChoice(choice, $event)">
               {{choice.DcSysName}} {{choice.SysName}}</a>
@@ -113,7 +113,7 @@
       </div>
       <div class="vbtn">
         <div class="btn-group">
-          <button type="button" class="btn btn-primary dropdown-toggle"
+          <button type="button" class="btn btn-primary" uib-dropdown-toggle
           style="margin-left: 8px;" 
           ng-click="RegexList()" ng-disabled="btnshowkeysdisabled">
             Show Host Mappings
@@ -302,9 +302,8 @@
             <tr>
               <!-- <td style="width:200px"> -->
               <td class="white" style="white-space: nowrap">
-                <select ng-model="mapconfig.newclass" class="selectpicker"
-                ng-options="item for item in statedescs_names"
-                required >
+                <select ng-model="mapconfig.newclass" selectpicker required
+                    ng-options="item for item in statedescs_names">
                   <option value="">Choose option</option>
                 </select>
                 <a href="#" ng-click="AddClass(mapconfig.newclass)">

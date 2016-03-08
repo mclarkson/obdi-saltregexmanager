@@ -18,7 +18,7 @@
 // AngularJS Controller
 // ------------------------------------------------------------------------
 
-mgrApp.controller("saltregexmgrCtrl", function ($scope,$http,$modal,$log,
+mgrApp.controller("saltregexmgrCtrl", function ($scope,$http,$uibModal,$log,
       $timeout,baseUrl,$rootScope) {
 
   $scope.environments = [];
@@ -58,6 +58,7 @@ mgrApp.controller("saltregexmgrCtrl", function ($scope,$http,$modal,$log,
   $scope.spacing = 20;
   $scope.newregex = {};
   $scope.newregex.Name = ""; // so watch works without error
+  $scope.statedescs_names = [];
 
   $rootScope.$broadcast( "searchdisabled", true );
 
@@ -628,6 +629,9 @@ mgrApp.controller("saltregexmgrCtrl", function ($scope,$http,$modal,$log,
       });
 
       $scope.get_desc_in_progress = false;
+      $timeout( function() {
+          $('select').selectpicker('refresh');
+      });
 
     }).error( function(data,status) {
       if (status>=500) {
@@ -834,7 +838,7 @@ mgrApp.controller("saltregexmgrCtrl", function ($scope,$http,$modal,$log,
     $scope.servername = servername;
     $scope.id = id;
 
-    var modalInstance = $modal.open({
+    var modalInstance = $uibModal.open({
       templateUrl: 'myModalContent.html',
       controller: $scope.ModalInstanceCtrl,
       size: 'sm',
@@ -871,7 +875,7 @@ mgrApp.controller("saltregexmgrCtrl", function ($scope,$http,$modal,$log,
 
     $scope.servername = servername;
 
-    var modalInstance = $modal.open({
+    var modalInstance = $uibModal.open({
       templateUrl: 'myModalContent.html',
       controller: $scope.ModalInstanceCtrl,
       size: 'sm',
@@ -892,18 +896,18 @@ mgrApp.controller("saltregexmgrCtrl", function ($scope,$http,$modal,$log,
   };
 
   // --------------------------------------------------------------------
-  $scope.ModalInstanceCtrl = function ($scope, $modalInstance, servername) {
+  $scope.ModalInstanceCtrl = function ($scope, $uibModalInstance, servername) {
   // --------------------------------------------------------------------
 
     // So the template can access 'servername' in this new scope
     $scope.servername = servername;
 
     $scope.ok = function () {
-      $modalInstance.close();
+      $uibModalInstance.close();
     };
 
     $scope.cancel = function () {
-      $modalInstance.dismiss('cancel');
+      $uibModalInstance.dismiss('cancel');
     };
   };
 
