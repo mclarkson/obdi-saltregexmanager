@@ -17,15 +17,9 @@
 package main
 
 import (
-	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"log/syslog"
 	"net"
-	"net/http"
 	"net/rpc"
 	"os"
 	"strings"
@@ -65,23 +59,6 @@ type RegexSlsMap struct {
 	StateFile string // Can be null
 }
 
-// For retrieving details from the Manager
-type Env struct {
-	Id       int64
-	DispName string // Display name
-	SysName  string // System name (Salt name)
-	/*Dc          Dc*/ // only for creating Env and substruct
-	DcId               int64
-	DcSysName          string
-	//WorkerIp    string      // Hostname or IP address of worker
-	//WorkerPort  string      // Port the worker listens on
-	WorkerUrl string // Worker URL Prefix
-	WorkerKey string // Key (password) for worker
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt time.Time
-}
-
 // --
 
 var config *Config
@@ -92,21 +69,18 @@ type Config struct {
 	Port     int
 }
 
-// --------------------------------------------------------------------------
 func (c *Config) DBPath() string {
-	// --------------------------------------------------------------------------
+
 	return c.Dbname
 }
 
-// --------------------------------------------------------------------------
 func (c *Config) SetDBPath(path string) {
-	// --------------------------------------------------------------------------
+
 	c.Dbname = path
 }
 
-// --------------------------------------------------------------------------
 func NewConfig() {
-	// --------------------------------------------------------------------------
+
 	config = &Config{}
 }
 
@@ -116,9 +90,8 @@ type GormDB struct {
 	db gorm.DB
 }
 
-// --------------------------------------------------------------------------
 func (gormInst *GormDB) InitDB() error {
-	// --------------------------------------------------------------------------
+
 	var err error
 	dbname := config.DBPath()
 
@@ -146,57 +119,18 @@ func (gormInst *GormDB) InitDB() error {
 	return nil
 }
 
-// --------------------------------------------------------------------------
 func (gormInst *GormDB) DB() *gorm.DB {
-	// --------------------------------------------------------------------------
+
 	return &gormInst.db
 }
 
-// --------------------------------------------------------------------------
 func NewDB() (*GormDB, error) {
-	// --------------------------------------------------------------------------
+
 	gormInst := &GormDB{}
 	if err := gormInst.InitDB(); err != nil {
 		return gormInst, err
 	}
 	return gormInst, nil
-}
-
-// ***************************************************************************
-// ERRORS
-// ***************************************************************************
-
-const (
-	SUCCESS = 0
-	ERROR   = 1
-)
-
-type ApiError struct {
-	details string
-}
-
-// --------------------------------------------------------------------------
-func (e ApiError) Error() string {
-	// --------------------------------------------------------------------------
-	return fmt.Sprintf("%s", e.details)
-}
-
-// ***************************************************************************
-// LOGGING
-// ***************************************************************************
-
-// --------------------------------------------------------------------------
-func logit(msg string) {
-	// --------------------------------------------------------------------------
-	// Log to syslog
-	log.Println(msg)
-	l, err := syslog.New(syslog.LOG_ERR, "obdi")
-	defer l.Close()
-	if err != nil {
-		log.Fatal("error writing syslog!")
-	}
-
-	l.Err(msg)
 }
 
 // ***************************************************************************
@@ -210,16 +144,14 @@ type PortLock struct {
 	ln       net.Listener
 }
 
-// --------------------------------------------------------------------------
 func NewPortLock(port int) *PortLock {
-	// --------------------------------------------------------------------------
+
 	// NewFLock creates new Flock-based lock (unlocked first)
 	return &PortLock{hostport: net.JoinHostPort("127.0.0.1", strconv.Itoa(port))}
 }
 
-// --------------------------------------------------------------------------
 func (p *PortLock) Lock() {
-	// --------------------------------------------------------------------------
+
 	// Lock acquires the lock, blocking
 	t := 50 * time.Millisecond
 	for {
@@ -234,9 +166,8 @@ func (p *PortLock) Lock() {
 	}
 }
 
-// --------------------------------------------------------------------------
 func (p *PortLock) Unlock() {
-	// --------------------------------------------------------------------------
+
 	// Unlock releases the lock
 	if p.ln != nil {
 		p.ln.Close()
@@ -244,204 +175,41 @@ func (p *PortLock) Unlock() {
 }
 
 // ***************************************************************************
-// REST SUPPORT FUNCS
-// ***************************************************************************
-
-// --------------------------------------------------------------------------
-func GET(url, endpoint string) (r *http.Response, e error) {
-	// --------------------------------------------------------------------------
-	// Send HTTP GET request
-
-	// accept bad certs
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
-	// Not available in Go<1.3
-	//client.Timeout = 8 * 1e9
-
-	//fmt.Printf("\n%s/api/%s\n",url,endpoint)
-	for strings.HasSuffix(url, "/") {
-		url = strings.TrimSuffix(url, "/")
-	}
-	//fmt.Printf( "%s\n", url+"/"+endpoint )
-	resp, err := client.Get(url + "/" + endpoint)
-	if err != nil {
-		txt := fmt.Sprintf("Could not send REST request ('%s').", err.Error())
-		return resp, ApiError{txt}
-	}
-
-	if resp.StatusCode != 200 {
-		var body []byte
-		if b, err := ioutil.ReadAll(resp.Body); err != nil {
-			txt := fmt.Sprintf("Error reading Body ('%s').", err.Error())
-			return resp, ApiError{txt}
-		} else {
-			body = b
-		}
-		type myErr struct {
-			Error string
-		}
-		errstr := myErr{}
-		if err := json.Unmarshal(body, &errstr); err != nil {
-			txt := fmt.Sprintf("Error decoding JSON "+
-				"returned from worker - (%s). Check the Worker URL.",
-				err.Error())
-			return resp, ApiError{txt}
-		}
-
-		//txt := fmt.Sprintf("%s", resp.StatusCode)
-		return resp, ApiError{errstr.Error}
-	}
-
-	return resp, nil
-}
-
-// --------------------------------------------------------------------------
-func POST(jsondata []byte, url, endpoint string) (r *http.Response, e error) {
-	// --------------------------------------------------------------------------
-	// Send HTTP POST request
-
-	buf := bytes.NewBuffer(jsondata)
-
-	// accept bad certs
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
-	// Not available in Go<1.3
-	//client.Timeout = 8 * 1e9
-
-	//fmt.Printf("\n%s/api/%s\n",url,endpoint)
-	for strings.HasSuffix(url, "/") {
-		url = strings.TrimSuffix(url, "/")
-	}
-	//fmt.Printf( "%s\n", url+"/"+endpoint )
-	resp, err := client.Post(url+"/"+endpoint, "application/json", buf)
-	if err != nil {
-		txt := fmt.Sprintf("Could not send REST request ('%s').", err.Error())
-		return resp, ApiError{txt}
-	}
-
-	if resp.StatusCode != 200 {
-		var body []byte
-		if b, err := ioutil.ReadAll(resp.Body); err != nil {
-			txt := fmt.Sprintf("Error reading Body ('%s').", err.Error())
-			return resp, ApiError{txt}
-		} else {
-			body = b
-		}
-		type myErr struct {
-			Error string
-		}
-		errstr := myErr{}
-		if err := json.Unmarshal(body, &errstr); err != nil {
-			txt := fmt.Sprintf("Error decoding JSON "+
-				"returned from worker - (%s). Check the Worker URL.",
-				err.Error())
-			return resp, ApiError{txt}
-		}
-
-		//txt := fmt.Sprintf("%s", resp.StatusCode)
-		return resp, ApiError{errstr.Error}
-	}
-
-	return resp, nil
-}
-
-// ***************************************************************************
 // GO RPC PLUGIN
 // ***************************************************************************
-
-// Args are send over RPC from the Manager
-type Args struct {
-	PathParams  map[string]string
-	QueryString map[string][]string
-	PostData    []byte
-	QueryType   string
-}
 
 type PostedData struct {
 	Classes []string
 	RegexId int64
 }
 
-type Plugin struct{}
-
-// The reply will be sent and output by the master
-type Reply struct {
-	// Add more if required
-	JsonData string
-	// Must have the following
-	PluginReturn int64 // 0 - success, 1 - error
-	PluginError  string
-}
-
-// --------------------------------------------------------------------------
 func Unlock() {
-	// --------------------------------------------------------------------------
+
 	config.Portlock.Unlock()
 }
 
-// --------------------------------------------------------------------------
 func Lock() {
-	// --------------------------------------------------------------------------
+
 	config.Portlock.Lock()
 }
 
-// --------------------------------------------------------------------------
-func ReturnError(text string, response *[]byte) {
-	// --------------------------------------------------------------------------
-	errtext := Reply{"", ERROR, text}
-	logit(text)
-	jsondata, _ := json.Marshal(errtext)
-	*response = jsondata
-}
-
-// --------------------------------------------------------------------------
 func (t *Plugin) GetRequest(args *Args, response *[]byte) error {
-	// --------------------------------------------------------------------------
+
 	// Return list of all regex_sls_maps for an environment
 
 	// Check for required query string entries
-
-	var err error
 
 	if len(args.QueryString["env_id"]) == 0 {
 		ReturnError("'env_id' must be set", response)
 		return nil
 	}
 
-	env_id := args.QueryString["env_id"][0]
+	env_id_str := args.QueryString["env_id"][0]
 
-	// env_id is not needed. The following is done just to check that
-	// the user is allowed to access the dc/env.
-
-	// Get the Dc (DcSysName) and Env (SysName) for this env_id using REST.
-	// The Data Centre name and Environment name are stored in:
-	//   envs[0].DcSysName and envs[0].SysName
-	// GET queries always return an array of items, even for 1 item.
-	envs := []Env{}
-	resp, err := GET("https://127.0.0.1/api/"+
-		args.PathParams["login"]+"/"+args.PathParams["GUID"], "envs"+
-		"?env_id="+env_id)
-	if b, err := ioutil.ReadAll(resp.Body); err != nil {
-		txt := fmt.Sprintf("Error reading Body ('%s').", err.Error())
-		errtext := Reply{"", ERROR, txt}
-		jsondata, _ := json.Marshal(errtext)
-		*response = jsondata
-		return nil
-	} else {
-		json.Unmarshal(b, &envs)
-	}
-	// If envs is empty then we don't have permission to see it
-	// or the env does not exist so bug out.
-	if len(envs) == 0 {
-		txt := "The requested environment id does not exist" +
-			" or the permissions to access it are insufficient."
-		errtext := Reply{"", ERROR, txt}
-		jsondata, _ := json.Marshal(errtext)
-		*response = jsondata
+	// Check if the user is allowed to access the environment
+	var err error
+	if _, err = t.GetAllowedEnv(args, env_id_str, response); err != nil {
+		// GetAllowedEnv wrote the error
 		return nil
 	}
 
@@ -518,7 +286,7 @@ func (t *Plugin) GetRequest(args *Args, response *[]byte) error {
 		ReturnError("Marshal error: "+err.Error(), response)
 		return nil
 	}
-	reply := Reply{string(TempJsonData), SUCCESS, ""}
+	reply := Reply{0, string(TempJsonData), SUCCESS, ""}
 	jsondata, err := json.Marshal(reply)
 
 	if err != nil {
@@ -531,11 +299,7 @@ func (t *Plugin) GetRequest(args *Args, response *[]byte) error {
 	return nil
 }
 
-// --------------------------------------------------------------------------
 func (t *Plugin) PostRequest(args *Args, response *[]byte) error {
-	// --------------------------------------------------------------------------
-
-	var err error
 
 	// Needed if the salt version has been changed
 	if len(args.QueryString["env_id"]) == 0 {
@@ -543,39 +307,14 @@ func (t *Plugin) PostRequest(args *Args, response *[]byte) error {
 		return nil
 	}
 
-	env_id := args.QueryString["env_id"][0]
-	//env_id_str, _ := strconv.ParseInt( args.QueryString["env_id"][0],10,64 )
+	env_id_str := args.QueryString["env_id"][0]
 
-	// Get the Dc (DcSysName) and Env (SysName) for this env_id using REST.
-	// The Data Centre name and Environment name are stored in:
-	//   envs[0].DcSysName and envs[0].SysName
-	// GET queries always return an array of items, even for 1 item.
-	envs := []Env{}
-	resp, err := GET("https://127.0.0.1/api/"+
-		args.PathParams["login"]+"/"+args.PathParams["GUID"], "envs"+
-		"?env_id="+env_id)
-	if b, err := ioutil.ReadAll(resp.Body); err != nil {
-		txt := fmt.Sprintf("Error reading Body ('%s').", err.Error())
-		errtext := Reply{"", ERROR, txt}
-		jsondata, _ := json.Marshal(errtext)
-		*response = jsondata
-		return nil
-	} else {
-		json.Unmarshal(b, &envs)
-	}
-	// If envs is empty then we don't have permission to see it
-	// or the env does not exist so bug out.
-	if len(envs) == 0 {
-		txt := "The requested environment id does not exist" +
-			" or the permissions to access it are insufficient."
-		errtext := Reply{"", ERROR, txt}
-		jsondata, _ := json.Marshal(errtext)
-		*response = jsondata
+	// Check if the user is allowed to access the environment
+	var err error
+	if _, err = t.GetAllowedEnv(args, env_id_str, response); err != nil {
+		// GetAllowedEnv wrote the error
 		return nil
 	}
-
-	//dc := envs[0].DcSysName
-	//env := envs[0].SysName
 
 	// PluginDatabasePath is required to open our private db
 	if len(args.PathParams["PluginDatabasePath"]) == 0 {
@@ -649,7 +388,7 @@ func (t *Plugin) PostRequest(args *Args, response *[]byte) error {
 		Unlock()
 	}
 
-	reply := Reply{"", SUCCESS, ""}
+	reply := Reply{0, "", SUCCESS, ""}
 	jsondata, err := json.Marshal(reply)
 
 	if err != nil {
@@ -662,9 +401,8 @@ func (t *Plugin) PostRequest(args *Args, response *[]byte) error {
 	return nil
 }
 
-// --------------------------------------------------------------------------
 func (t *Plugin) HandleRequest(args *Args, response *[]byte) error {
-	// --------------------------------------------------------------------------
+
 	// All plugins must have this.
 
 	if len(args.QueryType) > 0 {
@@ -689,9 +427,7 @@ func (t *Plugin) HandleRequest(args *Args, response *[]byte) error {
 // ENTRY POINT
 // ***************************************************************************
 
-// --------------------------------------------------------------------------
 func main() {
-	// --------------------------------------------------------------------------
 
 	// Sets the global config var
 	NewConfig()
@@ -709,14 +445,12 @@ func main() {
 		logit(txt)
 	}
 
-	//for {
 	if conn, err := listener.Accept(); err != nil {
 		txt := fmt.Sprintf("Accept error. ", err)
 		logit(txt)
 	} else {
 		rpc.ServeConn(conn)
 	}
-	//}
 }
 
 // vim:ts=2:sw=2

@@ -423,7 +423,7 @@ mgrApp.controller("saltregexmgrCtrl", function ($scope,$http,$uibModal,$log,
 
       // Extract data into array
       try {
-        $scope.mapconfig.map = $.parseJSON(data.JsonData);
+        $scope.mapconfig.map = $.parseJSON(data.Text);
       } catch (e) {
         clearMessages();
         $scope.message = "Error: " + e;
@@ -751,7 +751,7 @@ mgrApp.controller("saltregexmgrCtrl", function ($scope,$http,$uibModal,$log,
 
       $scope.showkeybtnblockhidden = true;
 
-      var regexlist = $.parseJSON(data.JsonData);
+      var regexlist = $.parseJSON(data.Text);
 
       $scope.regexlist = regexlist;
 
