@@ -306,9 +306,9 @@
                     ng-options="item for item in statedescs_names">
                   <option value="">Choose option</option>
                 </select>
-                <a href="#" ng-click="AddClass(mapconfig.newclass)">
-                  <i class="fa fa-plus-circle green" title="Add Class"></i>
-                </a>
+                <button type="button" class="btn btn-default btn-sm" ng-click="AddClass(configview.newclass)">
+                  <i class="fa fa-plus-circle"></i>Add Class
+                </button>
               </td>
               <td class="white" style="white-space: pre-wrap;width: 100%;">{{GetDescriptionChooser(mapconfig.newclass)}}</td>
             </tr>
